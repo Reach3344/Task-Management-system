@@ -81,6 +81,10 @@ document.getElementById('view-analytics')?.addEventListener('click', function (e
 document.getElementById('logout')?.addEventListener('click', async (e) => {
     e.preventDefault();
 
+    if (!confirm('Are you sure you want to log out?')) {
+        return;
+    }
+
     try {
         await fetch('../php/logout.php', {
             method: 'POST',

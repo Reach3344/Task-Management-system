@@ -14,6 +14,8 @@ loginBtn.addEventListener('click', () => {
 document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 
     // Alert 
     function showAlert(type, message) {
@@ -82,19 +84,47 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         const username = this.querySelector('input[type="text"]').value.trim();
         const email = this.querySelector('input[type="email"]').value.trim();
-        const password = this.querySelector('input[type="password"]').value;
+        const passwordInputs = this.querySelectorAll('input[type="password"]');
+        const password = passwordInputs[0].value;
+        const confirmPassword = passwordInputs[1].value;
+        const submitButton = this.querySelector('button[type="submit"]');
 
-        setButtonState(this.querySelector('button[type="submit"]'), true, 'Register');
+        if (!username || !email || !password || !confirmPassword) {
+            showAlert('error', 'All registration fields are required.');
+            return;
+        }
+
+        if (!emailPattern.test(email)) {
+            showAlert('error', 'Please enter a valid email address.');
+            return;
+        }
+
+        if (!strongPasswordPattern.test(password)) {
+            showAlert('error', 'Password must be at least 8 characters and include uppercase, lowercase, and a number.');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            showAlert('error', 'Password and confirm password do not match.');
+            return;
+        }
+
+        setButtonState(submitButton, true, 'Register');
 
         try {
-            const data = await sendAuthRequest('php/register.php', { username, email, password });
+            const data = await sendAuthRequest('php/register.php', {
+                username,
+                email,
+                password,
+                confirmPassword
+            });
             localStorage.setItem('currentUser', JSON.stringify(data.user));
             showAlert('success', 'Registration successful! Redirecting...');
             setTimeout(() => window.location.href = 'pages/homePage.html', 500);
         } catch (error) {
             showAlert('error', error.message || 'Registration failed.');
         } finally {
-            setButtonState(this.querySelector('button[type="submit"]'), false, 'Register');
+            setButtonState(submitButton, false, 'Register');
         }
     });
 
