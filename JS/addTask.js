@@ -78,8 +78,18 @@ document.getElementById('view-analytics')?.addEventListener('click', function (e
 });
 
 // Logout
-document.getElementById('logout')?.addEventListener('click', (e) => {
+document.getElementById('logout')?.addEventListener('click', async (e) => {
     e.preventDefault();
+
+    try {
+        await fetch('../php/logout.php', {
+            method: 'POST',
+            credentials: 'same-origin'
+        });
+    } catch (error) {
+        console.error('Logout request failed:', error);
+    }
+
     localStorage.removeItem('currentUser');
     // Optionally keep tasks; if you want to clear tasks too, uncomment next line
     // localStorage.removeItem('tasks');

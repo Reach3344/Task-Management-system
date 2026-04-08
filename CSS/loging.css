@@ -224,6 +224,19 @@ body {
     right: 20px;
     z-index: 10000;
     min-width: 300px;
+    max-width: calc(100vw - 40px);
+    padding: 14px 18px;
+    border-radius: 12px;
+    color: #fff;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.alert-success {
+    background: #198754;
+}
+
+.alert-danger {
+    background: #dc3545;
 }
 
 #authContainer {

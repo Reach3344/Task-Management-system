@@ -12,82 +12,90 @@ loginBtn.addEventListener('click', () => {
 
 
 document.addEventListener('DOMContentLoaded', () => {
-    const container = document.querySelector('.container');
     const loginForm = document.getElementById('login-form');
-    const loginBtn = document.querySelector('.login-btn');
     const registerForm = document.getElementById('register-form');
-    const registerBtn = document.querySelector('.register-btn');
-
-
-    if (!localStorage.getItem('taskManagerUsers')) {
-        localStorage.setItem('taskManagerUsers', JSON.stringify([
-            {
-                id: 1,
-                username: 'admin',
-                email: 'admin@gmail.com',
-                password: 'admin123',
-                createdAt: new Date().toISOString(),
-                loginCount: 0
-            }
-        ]));
-    }
 
     // Alert 
     function showAlert(type, message) {
-        const successAlert = document.getElementById('successAlert');
-        const errorAlert = document.getElementById('errorAlert');
-        successAlert.classList.add('d-none');
-        errorAlert.classList.add('d-none');
+        const activeForm = container.classList.contains('active') ? registerForm : loginForm;
+        let alertBox = activeForm.querySelector('.form-alert');
 
-        if (type === 'success' || type === 'info') {
-            successAlert.textContent = message;
-            successAlert.classList.remove('d-none');
-        } else {
-            errorAlert.textContent = message;
-            errorAlert.classList.remove('d-none');
+        if (!alertBox) {
+            alertBox = document.createElement('div');
+            alertBox.className = 'form-alert';
+            activeForm.insertBefore(alertBox, activeForm.querySelector('.input-box'));
         }
+
+        alertBox.textContent = message;
+        alertBox.className = `form-alert alert ${type === 'success' || type === 'info' ? 'alert-success' : 'alert-danger'}`;
     }
+
+    async function sendAuthRequest(url, payload) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json().catch(() => ({
+            success: false,
+            message: 'Unexpected server response.'
+        }));
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || 'Request failed.');
+        }
+
+        return data;
+    }
+
+    function setButtonState(button, isLoading, defaultLabel) {
+        button.disabled = isLoading;
+        button.textContent = isLoading ? 'Please wait...' : defaultLabel;
+    }
+
     // login 
-    loginForm.addEventListener('submit', function (e) {
+    loginForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const username = this.querySelector('input[type="text"]').value.trim();
         const password = this.querySelector('input[type="password"]').value;
 
-        const users = JSON.parse(localStorage.getItem('taskManagerUsers'));
-        const user = users.find(u => u.username === username && u.password === password);
+        setButtonState(this.querySelector('button[type="submit"]'), true, 'Login');
 
-        if (user) {
-            user.loginCount = (user.loginCount || 0) + 1;
-            user.lastLogin = new Date().toISOString();
-            localStorage.setItem('taskManagerUsers', JSON.stringify(users));
-            localStorage.setItem('currentUser', JSON.stringify(user));
-
+        try {
+            const data = await sendAuthRequest('php/login.php', { username, password });
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
             showAlert('success', 'Login successful! Redirecting...');
-            setTimeout(() => window.location.href = '../pages/homePage.html', 500);
-        } else {
-            showAlert('error', 'Invalid username or password. Try: admin / admin123');
+            setTimeout(() => window.location.href = 'pages/homePage.html', 500);
+        } catch (error) {
+            showAlert('error', error.message || 'Invalid username or password.');
+        } finally {
+            setButtonState(this.querySelector('button[type="submit"]'), false, 'Login');
         }
     });
 
     // Register
-    registerForm.addEventListener('submit', function (e) {
+    registerForm.addEventListener('submit', async function (e) {
         e.preventDefault();
         const username = this.querySelector('input[type="text"]').value.trim();
         const email = this.querySelector('input[type="email"]').value.trim();
         const password = this.querySelector('input[type="password"]').value;
 
-        const users = JSON.parse(localStorage.getItem('taskManagerUsers'));
+        setButtonState(this.querySelector('button[type="submit"]'), true, 'Register');
 
-        if (users.some(u => u.username === username)) { showAlert('error', 'Username already exists'); return; }
-        if (users.some(u => u.email === email)) { showAlert('error', 'Email already registered'); return; }
-
-        const newUser = { id: Date.now(), username, email, password, createdAt: new Date().toISOString(), loginCount: 1 };
-        users.push(newUser);
-        localStorage.setItem('taskManagerUsers', JSON.stringify(users));
-        localStorage.setItem('currentUser', JSON.stringify(newUser));
-
-        showAlert('success', 'Registration successful! Redirecting...');
-        setTimeout(() => window.location.href = '../pages/homePage.html', 500);
+        try {
+            const data = await sendAuthRequest('php/register.php', { username, email, password });
+            localStorage.setItem('currentUser', JSON.stringify(data.user));
+            showAlert('success', 'Registration successful! Redirecting...');
+            setTimeout(() => window.location.href = 'pages/homePage.html', 500);
+        } catch (error) {
+            showAlert('error', error.message || 'Registration failed.');
+        } finally {
+            setButtonState(this.querySelector('button[type="submit"]'), false, 'Register');
+        }
     });
 
 });

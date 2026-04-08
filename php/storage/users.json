@@ -1,0 +1,20 @@
+[
+    {
+        "id": 1,
+        "username": "admin",
+        "email": "admin@gmail.com",
+        "password": "$2y$10$AJgFREVgtmrrSqjCaG.Tde4GvUlP3zwUoZpnMcmmBuNdS9m5vyVnC",
+        "created_at": "2026-04-04T10:54:53+02:00",
+        "last_login": null,
+        "login_count": 0
+    },
+    {
+        "id": 2,
+        "username": "Talab Reach",
+        "email": "reach.talab@student.passerellesnumeriques.org",
+        "password": "$2y$10$Da67ZV449uz3AZwGB.ouM.koJEF9QTDjHRbZip0lUP1JF5zwWeuCq",
+        "created_at": "2026-04-04T10:54:53+02:00",
+        "last_login": "2026-04-08T14:22:34+02:00",
+        "login_count": 3
+    }
+]
