@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const registerForm = document.getElementById('register-form');
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    const usersStorageKey = 'taskManagerUsers';
 
     // Alert 
     function showAlert(type, message) {
@@ -32,26 +33,20 @@ document.addEventListener('DOMContentLoaded', () => {
         alertBox.className = `form-alert alert ${type === 'success' || type === 'info' ? 'alert-success' : 'alert-danger'}`;
     }
 
-    async function sendAuthRequest(url, payload) {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify(payload)
-        });
+    function getStoredUsers() {
+        return JSON.parse(localStorage.getItem(usersStorageKey) || '[]');
+    }
 
-        const data = await response.json().catch(() => ({
-            success: false,
-            message: 'Unexpected server response.'
+    function saveStoredUsers(users) {
+        localStorage.setItem(usersStorageKey, JSON.stringify(users));
+    }
+
+    function saveCurrentUser(user) {
+        localStorage.setItem('currentUser', JSON.stringify({
+            id: user.id,
+            username: user.username,
+            email: user.email
         }));
-
-        if (!response.ok || !data.success) {
-            throw new Error(data.message || 'Request failed.');
-        }
-
-        return data;
     }
 
     function setButtonState(button, isLoading, defaultLabel) {
@@ -68,8 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
         setButtonState(this.querySelector('button[type="submit"]'), true, 'Login');
 
         try {
-            const data = await sendAuthRequest('php/login.php', { username, password });
-            localStorage.setItem('currentUser', JSON.stringify(data.user));
+            const users = getStoredUsers();
+            const matchedUser = users.find((user) => user.username === username && user.password === password);
+
+            if (!matchedUser) {
+                throw new Error('Invalid username or password.');
+            }
+
+            saveCurrentUser(matchedUser);
             showAlert('success', 'Login successful! Redirecting...');
             setTimeout(() => window.location.href = 'pages/homePage.html', 500);
         } catch (error) {
@@ -112,13 +113,29 @@ document.addEventListener('DOMContentLoaded', () => {
         setButtonState(submitButton, true, 'Register');
 
         try {
-            const data = await sendAuthRequest('php/register.php', {
+            const users = getStoredUsers();
+            const usernameExists = users.some((user) => user.username.toLowerCase() === username.toLowerCase());
+            const emailExists = users.some((user) => user.email.toLowerCase() === email.toLowerCase());
+
+            if (usernameExists) {
+                throw new Error('Username is already taken.');
+            }
+
+            if (emailExists) {
+                throw new Error('Email is already registered.');
+            }
+
+            const newUser = {
+                id: Date.now(),
                 username,
                 email,
                 password,
-                confirmPassword
-            });
-            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                createdAt: new Date().toISOString()
+            };
+
+            users.push(newUser);
+            saveStoredUsers(users);
+            saveCurrentUser(newUser);
             showAlert('success', 'Registration successful! Redirecting...');
             setTimeout(() => window.location.href = 'pages/homePage.html', 500);
         } catch (error) {

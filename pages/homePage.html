@@ -655,17 +655,14 @@
             /* ===============================
             USER SETUP
             =============================== */
-            async function getCurrentUser() {
-                const response = await fetch('../php/current_user.php', {
-                    credentials: 'same-origin'
-                });
+            function getCurrentUser() {
+                const storedUser = localStorage.getItem('currentUser');
 
-                if (!response.ok) {
+                if (!storedUser) {
                     throw new Error('Not authenticated');
                 }
 
-                const data = await response.json();
-                return data.user;
+                return JSON.parse(storedUser);
             }
 
             function getInitials(name) {
@@ -678,8 +675,7 @@
             }
 
             try {
-                const currentUser = await getCurrentUser();
-                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                const currentUser = getCurrentUser();
                 document.getElementById('sidebarUsername').textContent = currentUser.username;
                 document.getElementById('sidebarEmail').textContent = currentUser.email;
                 document.getElementById('welcomeUsername').textContent = currentUser.username;
