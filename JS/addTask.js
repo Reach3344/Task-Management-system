@@ -927,8 +927,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ===== Clear All Data =====
     clearBtn.addEventListener("click", () => {
-        if (confirm("Are you sure you want to clear all data?")) {
-            localStorage.clear();
+        if (confirm("Are you sure you want to clear tasks and settings? Your registered account will stay saved.")) {
+            localStorage.removeItem("tasks");
+            localStorage.removeItem("settings");
             location.reload();
         }
     });
@@ -937,7 +938,8 @@ document.addEventListener("DOMContentLoaded", () => {
     exportBtn.addEventListener("click", () => {
         const data = {
             settings: JSON.parse(localStorage.getItem("settings")),
-            tasks: JSON.parse(localStorage.getItem("tasks"))
+            tasks: JSON.parse(localStorage.getItem("tasks")),
+            users: JSON.parse(localStorage.getItem("taskManagerUsers"))
         };
 
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
