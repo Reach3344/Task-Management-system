@@ -130,6 +130,19 @@ body {
     box-shadow: 0 14px 24px rgba(0, 0, 0, 0.12);
 }
 
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.75;
+    transform: none;
+}
+
+.password-hint {
+    color: #666;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: -16px 0 16px;
+}
+
 .social-icons {
     display: flex;
     justify-content: center;
@@ -219,16 +232,14 @@ body {
 }
 
 .alert {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10000;
-    min-width: 300px;
-    max-width: calc(100vw - 40px);
-    padding: 14px 18px;
-    border-radius: 12px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
     color: #fff;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+    font-size: 13px;
+    line-height: 1.35;
+    margin: 20px 0 -12px;
+    text-align: left;
 }
 
 .alert-success {

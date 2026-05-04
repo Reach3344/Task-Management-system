@@ -2,11 +2,11 @@ const container = document.querySelector('.container');
 const registerBtn = document.querySelector('.register-btn');
 const loginBtn = document.querySelector('.login-btn');
 
-registerBtn.addEventListener('click', () => {
+registerBtn?.addEventListener('click', () => {
     container.classList.add('active');
 })
 
-loginBtn.addEventListener('click', () => {
+loginBtn?.addEventListener('click', () => {
     container.classList.remove('active');
 })
 
@@ -15,10 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const strongPasswordPattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
     const usersStorageKey = 'taskManagerUsers';
 
-    // Alert 
+    if (!container || !loginForm || !registerForm) return;
+
+    // Alert
     function showAlert(type, message) {
         const activeForm = container.classList.contains('active') ? registerForm : loginForm;
         let alertBox = activeForm.querySelector('.form-alert');
@@ -34,7 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getStoredUsers() {
-        return JSON.parse(localStorage.getItem(usersStorageKey) || '[]');
+        try {
+            const users = JSON.parse(localStorage.getItem(usersStorageKey) || '[]');
+            return Array.isArray(users) ? users : [];
+        } catch (error) {
+            return [];
+        }
     }
 
     function saveStoredUsers(users) {
@@ -57,38 +63,48 @@ document.addEventListener('DOMContentLoaded', () => {
     // login 
     loginForm.addEventListener('submit', async function (e) {
         e.preventDefault();
-        const username = this.querySelector('input[type="text"]').value.trim();
-        const password = this.querySelector('input[type="password"]').value;
+        const loginId = this.elements.loginId.value.trim().toLowerCase();
+        const password = this.elements.loginPassword.value;
+        const submitButton = this.querySelector('button[type="submit"]');
+        let shouldRedirect = false;
 
-        setButtonState(this.querySelector('button[type="submit"]'), true, 'Login');
+        setButtonState(submitButton, true, 'Login');
 
         try {
             const users = getStoredUsers();
-            const matchedUser = users.find((user) => user.username === username && user.password === password);
+            const matchedUser = users.find((user) => {
+                const username = (user.username || '').toLowerCase();
+                const email = (user.email || '').toLowerCase();
+                return (username === loginId || email === loginId) && user.password === password;
+            });
 
             if (!matchedUser) {
-                throw new Error('Invalid username or password.');
+                throw new Error('Invalid username, email, or password.');
             }
 
             saveCurrentUser(matchedUser);
+            shouldRedirect = true;
             showAlert('success', 'Login successful! Redirecting...');
             setTimeout(() => window.location.href = 'pages/homePage.html', 500);
         } catch (error) {
-            showAlert('error', error.message || 'Invalid username or password.');
+            showAlert('error', error.message || 'Invalid username, email, or password.');
+            setButtonState(submitButton, false, 'Login');
         } finally {
-            setButtonState(this.querySelector('button[type="submit"]'), false, 'Login');
+            if (!shouldRedirect) {
+                setButtonState(submitButton, false, 'Login');
+            }
         }
     });
 
     // Register
     registerForm.addEventListener('submit', async function (e) {
         e.preventDefault();
-        const username = this.querySelector('input[type="text"]').value.trim();
-        const email = this.querySelector('input[type="email"]').value.trim();
-        const passwordInputs = this.querySelectorAll('input[type="password"]');
-        const password = passwordInputs[0].value;
-        const confirmPassword = passwordInputs[1].value;
+        const username = this.elements.username.value.trim();
+        const email = this.elements.email.value.trim();
+        const password = this.elements.password.value;
+        const confirmPassword = this.elements.confirmPassword.value;
         const submitButton = this.querySelector('button[type="submit"]');
+        let shouldRedirect = false;
 
         if (!username || !email || !password || !confirmPassword) {
             showAlert('error', 'All registration fields are required.');
@@ -100,8 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!strongPasswordPattern.test(password)) {
-            showAlert('error', 'Password must be at least 8 characters and include uppercase, lowercase, and a number.');
+        if (password.length < 8) {
+            showAlert('error', 'Password must be at least 8 characters.');
             return;
         }
 
@@ -126,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const newUser = {
-                id: Date.now(),
+                id: globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : Date.now().toString(),
                 username,
                 email,
                 password,
@@ -136,12 +152,16 @@ document.addEventListener('DOMContentLoaded', () => {
             users.push(newUser);
             saveStoredUsers(users);
             saveCurrentUser(newUser);
+            shouldRedirect = true;
             showAlert('success', 'Registration successful! Redirecting...');
             setTimeout(() => window.location.href = 'pages/homePage.html', 500);
         } catch (error) {
             showAlert('error', error.message || 'Registration failed.');
-        } finally {
             setButtonState(submitButton, false, 'Register');
+        } finally {
+            if (!shouldRedirect) {
+                setButtonState(submitButton, false, 'Register');
+            }
         }
     });
 

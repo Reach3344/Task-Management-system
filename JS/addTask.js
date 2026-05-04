@@ -5,7 +5,22 @@ let completionChart, categoryChart, priorityChart;
    STORAGE HELPERS
 ========================= */
 function getTasks() {
-    return JSON.parse(localStorage.getItem("tasks")) || [];
+    const tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+    let changed = false;
+
+    tasks.forEach(task => {
+        if (!task.id) {
+            task.id = createTaskId();
+            changed = true;
+        }
+        if (!task.status) {
+            task.status = "Pending";
+            changed = true;
+        }
+    });
+
+    if (changed) saveTasks(tasks);
+    return tasks;
 }
 
 function saveTasks(tasks) {
@@ -23,6 +38,30 @@ const categoryStyles = {
     Finance: "bg-warning",
     Other: "bg-secondary"
 };
+
+function createTaskId() {
+    return `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function findTaskIndex(identifier) {
+    const tasks = getTasks();
+    const id = String(identifier);
+
+    let index = tasks.findIndex(task => String(task.id) === id);
+    if (index === -1) index = tasks.findIndex(task => String(task.createdAt) === id);
+    if (index === -1 && /^\d+$/.test(id)) index = Number(id);
+
+    return index >= 0 && index < tasks.length ? index : -1;
+}
+
+function escapeHtml(value) {
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
 
 /* =========================
    PAGE SWITCHING
@@ -60,7 +99,7 @@ document.querySelectorAll('.nav-link').forEach(link => {
     link.addEventListener('click', function (e) {
         e.preventDefault();
         const pageName = this.getAttribute('data-page');
-        showPage(pageName);
+        if (pageName) showPage(pageName);
     });
 });
 
@@ -68,8 +107,8 @@ document.querySelectorAll('.nav-link').forEach(link => {
 document.getElementById('view-all-tasks')?.addEventListener('click', function (e) {
     e.preventDefault();
     const tasks = getTasks().slice().sort((a, b) => (a.title || '').toString().localeCompare((b.title || '').toString(), undefined, { sensitivity: 'base' }));
-    renderTasks(tasks);
     showPage('my-tasks');
+    renderTasks(tasks);
 });
 
 document.getElementById('view-analytics')?.addEventListener('click', function (e) {
@@ -104,15 +143,21 @@ document.getElementById("task-form").addEventListener("submit", function (e) {
     const category = document.getElementById("task-category").value;
     const priority = document.getElementById("task-priority").value;
     const dueDate = document.getElementById("task-due-date").value;
-    const editIndex = document.getElementById("task-edit-index").value;
+    const editIdentifier = document.getElementById("task-edit-index")?.value || "";
 
     const tasks = getTasks();
 
-    if (editIndex !== "") {
+    if (editIdentifier !== "") {
+        const editIndex = findTaskIndex(editIdentifier);
+        if (editIndex === -1) {
+            alert("Task was not found.");
+            return;
+        }
         tasks[editIndex] = { ...tasks[editIndex], title, description, category, priority, dueDate };
         document.getElementById("task-edit-index").value = "";
     } else {
         tasks.push({
+            id: createTaskId(),
             title,
             description,
             category,
@@ -144,6 +189,7 @@ document.getElementById("saveTask")?.addEventListener("click", function (e) {
 
     const tasks = getTasks();
     tasks.push({
+        id: createTaskId(),
         title,
         description,
         category,
@@ -175,45 +221,52 @@ document.getElementById("saveTask")?.addEventListener("click", function (e) {
 function deleteTask(index) {
     if (!confirm("Delete this task?")) return;
     const tasks = getTasks();
-    tasks.splice(index, 1);
+    const taskIndex = findTaskIndex(index);
+    if (taskIndex === -1) return;
+    tasks.splice(taskIndex, 1);
     saveTasks(tasks);
     refreshAll();
 }
 
 function editTask(index) {
     const tasks = getTasks();
-    const task = tasks[index];
+    const taskIndex = findTaskIndex(index);
+    if (taskIndex === -1) return;
+    const task = tasks[taskIndex];
 
     document.getElementById("task-title").value = task.title;
     document.getElementById("task-description").value = task.description;
     document.getElementById("task-category").value = task.category;
     document.getElementById("task-priority").value = task.priority;
     document.getElementById("task-due-date").value = task.dueDate || "";
-    document.getElementById("task-edit-index").value = index;
+    document.getElementById("task-edit-index").value = task.id || task.createdAt || taskIndex;
 
     showPage("add-task");
 }
 
 function toggleTaskStatus(index) {
     const tasks = getTasks();
-    const current = tasks[index].status || "Pending";
+    const taskIndex = findTaskIndex(index);
+    if (taskIndex === -1) return;
+    const current = tasks[taskIndex].status || "Pending";
     const next = current === "Pending" ? "In Progress" : current === "In Progress" ? "Completed" : "Pending";
-    tasks[index].status = next;
+    tasks[taskIndex].status = next;
     saveTasks(tasks);
     refreshAll();
 }
 
 function setTaskStatus(index, status) {
     const tasks = getTasks();
-    if (!tasks[index]) return;
-    tasks[index].status = status;
+    const taskIndex = findTaskIndex(index);
+    if (taskIndex === -1) return;
+    tasks[taskIndex].status = status;
     saveTasks(tasks);
     refreshAll();
 }
 
 function setTaskStatusById(identifier, status) {
     const tasks = getTasks();
-    const idx = tasks.findIndex(t => (t.id || t.createdAt) === identifier);
+    const idx = findTaskIndex(identifier);
     if (idx === -1) return;
     tasks[idx].status = status;
     saveTasks(tasks);
@@ -235,18 +288,19 @@ function renderTasks(tasksList = null) {
         return;
     }
 
-    tasks.forEach((task, index) => {
+    tasks.forEach((task) => {
+        const identifier = task.id || task.createdAt;
         const row = document.createElement("tr");
         row.innerHTML = `
-            <td>${task.title}</td>
+            <td>${escapeHtml(task.title)}</td>
             <td><span class="badge ${task.status === "Completed" ? "bg-success" : task.status === "In Progress" ? "bg-info" : "bg-warning"}">${task.status}</span></td>
-            <td><span class="badge ${categoryStyles[task.category] || "bg-secondary"}">${task.category}</span></td>
-            <td>${task.priority}</td>
-            <td>${task.dueDate || "-"}</td>
+            <td><span class="badge ${categoryStyles[task.category] || "bg-secondary"}">${escapeHtml(task.category)}</span></td>
+            <td>${escapeHtml(task.priority)}</td>
+            <td>${escapeHtml(task.dueDate || "-")}</td>
             <td>
-                <button class="btn btn-sm btn-primary" onclick="editTask(${index})"><i class="fas fa-edit"></i></button>
-                <button class="btn btn-sm btn-success" onclick="toggleTaskStatus(${index})"><i class="fas fa-check"></i></button>
-                <button class="btn btn-sm btn-danger" onclick="deleteTask(${index})"><i class="fas fa-trash"></i></button>
+                <button class="btn btn-sm btn-primary" onclick="editTask('${identifier}')"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-success" onclick="toggleTaskStatus('${identifier}')"><i class="fas fa-check"></i></button>
+                <button class="btn btn-sm btn-danger" onclick="deleteTask('${identifier}')"><i class="fas fa-trash"></i></button>
             </td>
         `;
         tbody.appendChild(row);
@@ -279,13 +333,13 @@ function renderRecentTasks() {
         taskElement.className = 'task-item d-flex justify-content-between align-items-center border-bottom py-2';
         taskElement.innerHTML = `
                     <div>
-                        <strong>${task.title}</strong>
+                        <strong>${escapeHtml(task.title)}</strong>
                         <div class="small text-muted">
                             <span class="badge bg-${task.priority === 'High' ? 'danger' : task.priority === 'Medium' ? 'warning' : 'success'}">
-                                ${task.priority}
+                                ${escapeHtml(task.priority)}
                             </span>
-                            <span class="ms-2">${task.category}</span>
-                            ${task.dueDate ? `<span class="ms-2"><i class="far fa-calendar"></i> ${task.dueDate}</span>` : ''}
+                            <span class="ms-2">${escapeHtml(task.category)}</span>
+                            ${task.dueDate ? `<span class="ms-2"><i class="far fa-calendar"></i> ${escapeHtml(task.dueDate)}</span>` : ''}
                         </div>
                     </div>
                     <span class="badge ${task.status === "Completed" ? "bg-success" : "bg-warning"}">
@@ -325,21 +379,21 @@ function renderBoard() {
         card.innerHTML = `
             <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <div class="fw-semibold">${task.title}</div>
-                    ${task.description ? `<div class="meta">${task.description}</div>` : ""}
+                    <div class="fw-semibold">${escapeHtml(task.title)}</div>
+                    ${task.description ? `<div class="meta">${escapeHtml(task.description)}</div>` : ""}
                     <div class="meta mt-1">
-                        <span class="badge ${categoryStyles[task.category] || "bg-secondary"}">${task.category}</span>
-                        <span class="ms-2">${task.priority}</span>
-                        ${task.dueDate ? `<span class="ms-2"><i class="far fa-calendar"></i> ${task.dueDate}</span>` : ""}
+                        <span class="badge ${categoryStyles[task.category] || "bg-secondary"}">${escapeHtml(task.category)}</span>
+                        <span class="ms-2">${escapeHtml(task.priority)}</span>
+                        ${task.dueDate ? `<span class="ms-2"><i class="far fa-calendar"></i> ${escapeHtml(task.dueDate)}</span>` : ""}
                     </div>
                 </div>
                 <span class="badge ${task.status === "Completed" ? "bg-success" : task.status === "In Progress" ? "bg-info" : "bg-warning"}">${task.status}</span>
             </div>
             <div class="actions">
-                <button class="btn btn-sm btn-outline-secondary" onclick="setTaskStatus(${index}, 'Pending')" ${task.status === "Pending" ? "disabled" : ""}>To Do</button>
-                <button class="btn btn-sm btn-outline-info" onclick="setTaskStatus(${index}, 'In Progress')" ${task.status === "In Progress" ? "disabled" : ""}>In Progress</button>
-                <button class="btn btn-sm btn-outline-success" onclick="setTaskStatus(${index}, 'Completed')" ${task.status === "Completed" ? "disabled" : ""}>Done</button>
-                <button class="btn btn-sm btn-link text-decoration-none" onclick="editTask(${index})"><i class="fas fa-edit"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="setTaskStatus('${identifier}', 'Pending')" ${task.status === "Pending" ? "disabled" : ""}>To Do</button>
+                <button class="btn btn-sm btn-outline-info" onclick="setTaskStatus('${identifier}', 'In Progress')" ${task.status === "In Progress" ? "disabled" : ""}>In Progress</button>
+                <button class="btn btn-sm btn-outline-success" onclick="setTaskStatus('${identifier}', 'Completed')" ${task.status === "Completed" ? "disabled" : ""}>Done</button>
+                <button class="btn btn-sm btn-link text-decoration-none" onclick="editTask('${identifier}')"><i class="fas fa-edit"></i></button>
             </div>
         `;
         col.appendChild(card);
@@ -518,8 +572,8 @@ function displayFilteredTasks(tasks) {
         taskElement.innerHTML = `
             <div class="task-header d-flex justify-content-between align-items-start">
                 <div>
-                    <div class="task-title fw-bold">${task.title}</div>
-                    ${task.description ? `<div class="task-description small text-muted">${task.description}</div>` : ''}
+                    <div class="task-title fw-bold">${escapeHtml(task.title)}</div>
+                    ${task.description ? `<div class="task-description small text-muted">${escapeHtml(task.description)}</div>` : ''}
                 </div>
                 <span class="task-status badge ${
                     task.status === 'completed' || task.status === 'Completed'
@@ -531,9 +585,9 @@ function displayFilteredTasks(tasks) {
                 </span>
             </div>
             <div class="task-meta small text-muted mt-2 d-flex gap-3">
-                <span><i class="fas fa-folder me-1"></i>${task.category}</span>
-                <span><i class="fas fa-flag me-1"></i>${task.priority}</span>
-                ${task.dueDate ? `<span><i class="far fa-calendar me-1"></i>${task.dueDate}</span>` : ''}
+                <span><i class="fas fa-folder me-1"></i>${escapeHtml(task.category)}</span>
+                <span><i class="fas fa-flag me-1"></i>${escapeHtml(task.priority)}</span>
+                ${task.dueDate ? `<span><i class="far fa-calendar me-1"></i>${escapeHtml(task.dueDate)}</span>` : ''}
             </div>
             <div class="task-actions mt-2">
                 <button class="btn btn-sm btn-outline-primary edit-task" data-id="${identifier}"><i class="fas fa-edit"></i> Edit</button>
@@ -547,18 +601,14 @@ function displayFilteredTasks(tasks) {
     container.querySelectorAll('.edit-task').forEach(btn => {
         btn.addEventListener('click', () => {
             const id = btn.getAttribute('data-id');
-            const tasksAll = getTasks();
-            const index = tasksAll.findIndex(t => (t.id || t.createdAt) == id);
-            if (index > -1) editTask(index);
+            editTask(id);
         });
     });
 
     container.querySelectorAll('.complete-task').forEach(btn => {
         btn.addEventListener('click', () => {
             const id = btn.getAttribute('data-id');
-            const tasksAll = getTasks();
-            const index = tasksAll.findIndex(t => (t.id || t.createdAt) == id);
-            if (index > -1) toggleTaskStatus(index);
+            toggleTaskStatus(id);
             // refresh the filtered view
             applyFilter();
         });
@@ -616,6 +666,10 @@ function updateTaskStats() {
 
 function renderAnalytics() {
     const tasks = getTasks();
+
+    if (typeof Chart === "undefined") {
+        return;
+    }
 
     // Destroy old charts
     [completionChart, categoryChart, priorityChart].forEach(chart => chart?.destroy());
@@ -747,17 +801,17 @@ document.getElementById("apply-filter")?.addEventListener("click", () => {
         taskElement.innerHTML = `
             <div class="task-header d-flex justify-content-between align-items-start">
                 <div>
-                    <div class="task-title fw-bold">${task.title}</div>
-                    ${task.description ? `<div class="task-description small text-muted">${task.description}</div>` : ''}
+                    <div class="task-title fw-bold">${escapeHtml(task.title)}</div>
+                    ${task.description ? `<div class="task-description small text-muted">${escapeHtml(task.description)}</div>` : ''}
                 </div>
                 <span class="task-status badge ${task.status === 'completed' || task.status === 'Completed' ? 'bg-success' : 'bg-warning'}">
                     ${task.status}
                 </span>
             </div>
             <div class="task-meta small text-muted mt-2 d-flex gap-3">
-                <span><i class="fas fa-folder me-1"></i>${task.category}</span>
-                <span><i class="fas fa-flag me-1"></i>${task.priority}</span>
-                ${task.dueDate ? `<span><i class="far fa-calendar me-1"></i>${task.dueDate}</span>` : ''}
+                <span><i class="fas fa-folder me-1"></i>${escapeHtml(task.category)}</span>
+                <span><i class="fas fa-flag me-1"></i>${escapeHtml(task.priority)}</span>
+                ${task.dueDate ? `<span><i class="far fa-calendar me-1"></i>${escapeHtml(task.dueDate)}</span>` : ''}
             </div>
             <div class="task-actions mt-2">
                 <button class="btn btn-sm btn-outline-primary edit-task" data-id="${identifier}"><i class="fas fa-edit"></i> Edit</button>
@@ -770,18 +824,14 @@ document.getElementById("apply-filter")?.addEventListener("click", () => {
     list.querySelectorAll('.edit-task').forEach(btn => {
         btn.addEventListener('click', () => {
             const id = btn.getAttribute('data-id');
-            const tasksAll = getTasks();
-            const index = tasksAll.findIndex(t => (t.id || t.createdAt) == id);
-            if (index > -1) editTask(index);
+            editTask(id);
         });
     });
 
     list.querySelectorAll('.complete-task').forEach(btn => {
         btn.addEventListener('click', () => {
             const id = btn.getAttribute('data-id');
-            const tasksAll = getTasks();
-            const index = tasksAll.findIndex(t => (t.id || t.createdAt) == id);
-            if (index > -1) toggleTaskStatus(index);
+            toggleTaskStatus(id);
             // refresh the filtered view
             applyFilter();
         });
@@ -798,6 +848,22 @@ document.getElementById("reset-filter")?.addEventListener("click", () => {
     document.getElementById("filter-category").value = "all";
     document.getElementById("filter-due-date").value = "all";
     document.getElementById("filtered-tasks-list").innerHTML = "";
+});
+
+document.getElementById("cancel-task")?.addEventListener("click", () => {
+    document.getElementById("task-form")?.reset();
+    const editInput = document.getElementById("task-edit-index");
+    if (editInput) editInput.value = "";
+    showPage("dashboard");
+});
+
+document.getElementById("export-tasks")?.addEventListener("click", () => {
+    const blob = new Blob([JSON.stringify(getTasks(), null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "tasks.json";
+    link.click();
+    URL.revokeObjectURL(link.href);
 });
 
 /* =========================
@@ -901,6 +967,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (settings.darkMode) {
         document.body.classList.add("dark-mode");
         document.getElementById("dark-mode-toggle").checked = true;
+    }
+
+    const currentDate = document.getElementById("current-date");
+    if (currentDate) {
+        currentDate.textContent = new Date().toLocaleDateString(undefined, {
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+        });
     }
 
     // Default page

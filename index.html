@@ -18,11 +18,11 @@
             <form action="#" id="login-form">
                 <h1>Login</h1>
                 <div class="input-box">
-                    <input type="text" placeholder="Username" required>
+                    <input type="text" name="loginId" placeholder="Username or Email" autocomplete="username" required>
                     <i class='bx bxs-user'></i>
                 </div>
                 <div class="input-box">
-                    <input type="password" placeholder="Password" required>
+                    <input type="password" name="loginPassword" placeholder="Password" autocomplete="current-password" required>
                     <i class='bx bxs-lock-alt'></i>
                 </div>
                 <div class="forgot-link">
@@ -43,21 +43,22 @@
             <form action="#" id="register-form">
                 <h1>Registration</h1>
                 <div class="input-box">
-                    <input type="text" placeholder="Username" required>
+                    <input type="text" name="username" placeholder="Username" autocomplete="username" required>
                     <i class='bx bxs-user'></i>
                 </div>
                 <div class="input-box">
-                    <input type="email" placeholder="Email" required>
+                    <input type="email" name="email" placeholder="Email" autocomplete="email" required>
                     <i class='bx bxs-envelope'></i>
                 </div>
                 <div class="input-box">
-                    <input type="password" placeholder="Password" required>
+                    <input type="password" name="password" placeholder="Password" autocomplete="new-password" minlength="8" required>
                     <i class='bx bxs-lock-alt'></i>
                 </div>
                 <div class="input-box">
-                    <input type="password" placeholder="Confirm Password" required>
+                    <input type="password" name="confirmPassword" placeholder="Confirm Password" autocomplete="new-password" minlength="8" required>
                     <i class='bx bxs-check-shield'></i>
                 </div>
+                <p class="password-hint">Use at least 8 characters.</p>
                 <button type="submit" class="btn">Register</button>
                 <p>or register with social platforms</p>
                 <div class="social-icons">
